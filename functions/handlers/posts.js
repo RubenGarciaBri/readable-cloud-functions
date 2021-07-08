@@ -23,20 +23,24 @@ const _ = {
         const commentsCollection = await db
           .collection('comments')
           .orderBy('createdAt', 'desc')
-          .where('postId', '==', doc.id)
+          .where('postId', '==', post.id)
           .get();
 
         commentsCollection.forEach((doc) => {
-          post.comments.push(doc.data());
+          const comment = doc.data();
+          comment.id = doc.id;
+          post.comments.push(comment);
         });
 
         const favsCollection = await db
           .collection('favs')
-          .where('postId', '==', doc.id)
+          .where('postId', '==', post.id)
           .get();
 
         favsCollection.forEach((doc) => {
-          post.favs.push(doc.data());
+          const fav = doc.data();
+          fav.id = doc.id;
+          post.favs.push(fav);
         });
 
         return post;
@@ -196,16 +200,16 @@ exports.deleteComment = (req, res) => {
       if (doc.data().userName !== req.user.userName) {
         return res.status(403).json({ error: 'Unauthorised' });
       } else {
-        post
-        .get()
-        .then((doc) => {
+        post.get().then((doc) => {
           if (!doc.exists) {
             return res.status(404).json({ error: 'Post not found' });
           } else {
-            return doc.ref.update({ commentCount: doc.data().commentCount - 1 });
-            console.log('Commentcount modified')
+            return doc.ref.update({
+              commentCount: doc.data().commentCount - 1,
+            });
+            console.log('Commentcount modified');
           }
-        })
+        });
       }
     })
     .then(() => {
