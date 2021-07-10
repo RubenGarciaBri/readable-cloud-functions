@@ -86,10 +86,14 @@ exports.getPost = (req, res) => {
         .get();
     })
     .then((data) => {
-      postData.favs = [];
+      postData.favs = []
+
       data.forEach((doc) => {
-        postData.favs.push(doc.data());
-      });
+        const fav = doc.data()
+        fav.id = doc.id
+        postData.favs.push(fav)
+      })
+
       return res.json(postData);
     })
     .catch((err) => {
@@ -261,12 +265,29 @@ exports.favPost = (req, res) => {
           .then(() => {
             postData.favCount++;
 
-            return postDocument.update({
+            postDocument.update({
               favCount: postData.favCount,
             });
+
+            return db
+            .collection('favs')
+            .where('postId', '==', postData.id)
+            .get()
           })
-          .then(() => {
-            return res.json(postData);
+          .then((data) => {
+            postData.favs = []
+
+            data.forEach((doc) => {
+              const fav = doc.data()
+              fav.id = doc.id
+              postData.favs.push(fav)
+            })
+
+            return res.json({
+              id: postData.id,
+              favCount: postData.favCount,
+              favs: postData.favs
+            });
           });
       } else {
         return res.status(400).json({ error: 'Post has already been faved' });
@@ -309,10 +330,27 @@ exports.unfavPost = (req, res) => {
           .delete()
           .then(() => {
             postData.favCount--;
-            return postDocument.update({ favCount: postData.favCount });
+            postDocument.update({ favCount: postData.favCount });
+
+            return db
+            .collection('favs')
+            .where('postId', '==', postData.id)
+            .get()
           })
-          .then(() => {
-            return res.json(postData);
+          .then((data) => {
+            postData.favs = []
+
+            data.forEach((doc) => {
+              const fav = doc.data()
+              fav.id = doc.id
+              postData.favs.push(fav)
+            })
+
+            return res.json({
+              id: postData.id,
+              favCount: postData.favCount,
+              favs: postData.favs
+            });
           });
       }
     })
