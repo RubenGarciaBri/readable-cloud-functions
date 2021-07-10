@@ -118,6 +118,8 @@ exports.postOnePost = (req, res) => {
     .then((doc) => {
       const resPost = newPost;
       resPost.id = doc.id;
+      resPost.comments = [];
+      resPost.favs = [];
       res.json(resPost);
     })
     .catch((err) => {
@@ -129,6 +131,7 @@ exports.postOnePost = (req, res) => {
 // Delete post
 exports.deletePost = (req, res) => {
   const document = db.doc(`/posts/${req.params.postId}`);
+
   document
     .get()
     .then((doc) => {
