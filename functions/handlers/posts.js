@@ -19,6 +19,8 @@ const _ = {
         post.id = doc.id;
         post.comments = [];
         post.favs = [];
+        post.upvotes = [];
+        post.downvotes = [];
 
         const commentsCollection = await db
           .collection('comments')
@@ -41,6 +43,28 @@ const _ = {
           const fav = doc.data();
           fav.id = doc.id;
           post.favs.push(fav);
+        });
+
+        const upvotesPostCollection = await db
+          .collection('postUpvotes')
+          .where('postId', '==', post.id)
+          .get();
+
+        upvotesPostCollection.forEach((doc) => {
+          const upvote = doc.data();
+          upvote.id = doc.id;
+          post.upvotes.push(upvote);
+        });
+
+        const downvotesPostCollection = await db
+          .collection('postDownvotes')
+          .where('postId', '==', post.id)
+          .get();
+
+        downvotesPostCollection.forEach((doc) => {
+          const upvote = doc.data();
+          upvote.id = doc.id;
+          post.upvotes.push(upvote);
         });
 
         return post;
@@ -92,6 +116,34 @@ exports.getPost = (req, res) => {
         const fav = doc.data();
         fav.id = doc.id;
         postData.favs.push(fav);
+      });
+
+      return db
+        .collection('postUpvotes')
+        .where('postId', '==', req.params.postId)
+        .get();
+    })
+    .then((data) => {
+      postData.upvotes = [];
+
+      data.forEach((doc) => {
+        const upvote = doc.data();
+        upvote.id = doc.id;
+        postData.upvotes.push(upvote);
+      });
+
+      return db
+        .collection('postDownvotes')
+        .where('postId', '==', req.params.postId)
+        .get();
+    })
+    .then((data) => {
+      postData.downvotes = [];
+
+      data.forEach((doc) => {
+        const downvote = doc.data();
+        downvote.id = doc.id;
+        postData.downvotes.push(downvote);
       });
 
       return res.json(postData);
@@ -376,6 +428,7 @@ exports.togglePostUpvote = (req, res) => {
   const postDocument = db.doc(`posts/${req.params.postId}`);
 
   let upvotes = [];
+  let downvotes = [];
   let postData = {};
 
   postDocument
@@ -402,10 +455,10 @@ exports.togglePostUpvote = (req, res) => {
           // Check if the post has been downvoted previously
           if (data.empty) {
             // If the post hasn't been downvoted, increase vote score by 1
-            postData.voteScore++;       
+            postData.voteScore++;
             postDocument.update({ voteScore: postData.voteScore });
 
-            // Fetch upvotes collection, push it into an array and return it
+            // Return upvotes and downvotes collections
             return db
               .collection('postUpvotes')
               .where('postId', '==', req.params.postId)
@@ -418,11 +471,27 @@ exports.togglePostUpvote = (req, res) => {
                   upvotes.push(upvote);
                 });
 
-                return res.json(upvotes);
+                return db
+                  .collection('postDownvotes')
+                  .where('postId', '==', req.params.postId)
+                  .get();
+              })
+              .then((data) => {
+                data.forEach((doc) => {
+                  const downvote = doc.data();
+                  downvote.id = doc.id;
+                  downvotes.push(downvote);
+                });
+
+                return res.json({
+                  postId: postData.id,
+                  voteScore: postData.voteScore,
+                  upvotes: upvotes,
+                  downvotes: downvotes,
+                });
               });
           } else {
             // If the post has been downvoted previously, delete previous downvote and increase voteScore by 2
-
             return db
               .doc(`/postDownvotes/${data.docs[0].id}`)
               .delete()
@@ -430,7 +499,7 @@ exports.togglePostUpvote = (req, res) => {
                 postData.voteScore += 2;
                 postDocument.update({ voteScore: postData.voteScore });
 
-                // Fetch upvotes collection, push it into an array and return it
+                // Return upvotes and downvotes collections
                 return db
                   .collection('postUpvotes')
                   .where('postId', '==', req.params.postId)
@@ -443,7 +512,24 @@ exports.togglePostUpvote = (req, res) => {
                   upvotes.push(upvote);
                 });
 
-                return res.json(upvotes);
+                return db
+                  .collection('postDownvotes')
+                  .where('postId', '==', req.params.postId)
+                  .get();
+              })
+              .then((data) => {
+                data.forEach((doc) => {
+                  const downvote = doc.data();
+                  downvote.id = doc.id;
+                  downvotes.push(downvote);
+                });
+
+                return res.json({
+                  postId: postData.id,
+                  voteScore: postData.voteScore,
+                  upvotes: upvotes,
+                  downvotes: downvotes,
+                });
               });
           }
         });
@@ -456,7 +542,7 @@ exports.togglePostUpvote = (req, res) => {
             postData.voteScore--;
             postDocument.update({ voteScore: postData.voteScore });
 
-            // Fetch upvotes collection, push it into an array and return it
+            // Return upvotes and downvotes collections
             return db
               .collection('postUpvotes')
               .where('postId', '==', req.params.postId)
@@ -469,7 +555,24 @@ exports.togglePostUpvote = (req, res) => {
               upvotes.push(upvote);
             });
 
-            return res.json(upvotes);
+            return db
+              .collection('postDownvotes')
+              .where('postId', '==', req.params.postId)
+              .get();
+          })
+          .then((data) => {
+            data.forEach((doc) => {
+              const downvote = doc.data();
+              downvote.id = doc.id;
+              downvotes.push(downvote);
+            });
+
+            return res.json({
+              postId: postData.id,
+              voteScore: postData.voteScore,
+              upvotes: upvotes,
+              downvotes: downvotes,
+            });
           });
       }
     })
@@ -494,6 +597,7 @@ exports.togglePostDownvote = (req, res) => {
 
   const postDocument = db.doc(`posts/${req.params.postId}`);
 
+  let upvotes = [];
   let downvotes = [];
   let postData = {};
 
@@ -524,7 +628,7 @@ exports.togglePostDownvote = (req, res) => {
             postData.voteScore--;
             postDocument.update({ voteScore: postData.voteScore });
 
-            // Fetch downvotes collection, push it into an array and return it
+            // Return upvotes and downvotes collections
             return db
               .collection('postDownvotes')
               .where('postId', '==', req.params.postId)
@@ -537,11 +641,27 @@ exports.togglePostDownvote = (req, res) => {
                   downvotes.push(downvote);
                 });
 
-                return res.json(downvotes);
+                return db
+                  .collection('postUpvotes')
+                  .where('postId', '==', req.params.postId)
+                  .get();
+              })
+              .then((data) => {
+                data.forEach((doc) => {
+                  const upvote = doc.data();
+                  upvote.id = doc.id;
+                  upvotes.push(upvote);
+                });
+
+                return res.json({
+                  postId: postData.id,
+                  voteScore: postData.voteScore,
+                  upvotes: upvotes,
+                  downvotes: downvotes,
+                });
               });
           } else {
             // If the post has been upvoted previously, delete previous upvote and decrease voteScore by 2
-
             return db
               .doc(`/postUpvotes/${data.docs[0].id}`)
               .delete()
@@ -549,7 +669,7 @@ exports.togglePostDownvote = (req, res) => {
                 postData.voteScore -= 2;
                 postDocument.update({ voteScore: postData.voteScore });
 
-                // Fetch downvotes collection, push it into an array and return it
+                // Return upvotes and downvotes collections
                 return db
                   .collection('postDownvotes')
                   .where('postId', '==', req.params.postId)
@@ -562,7 +682,24 @@ exports.togglePostDownvote = (req, res) => {
                   downvotes.push(downvote);
                 });
 
-                return res.json(downvotes);
+                return db
+                  .collection('postUpvotes')
+                  .where('postId', '==', req.params.postId)
+                  .get();
+              })
+              .then((data) => {
+                data.forEach((doc) => {
+                  const upvote = doc.data();
+                  upvote.id = doc.id;
+                  upvotes.push(upvote);
+                });
+
+                return res.json({
+                  postId: postData.id,
+                  voteScore: postData.voteScore,
+                  upvotes: upvotes,
+                  downvotes: downvotes,
+                });
               });
           }
         });
@@ -575,7 +712,7 @@ exports.togglePostDownvote = (req, res) => {
             postData.voteScore++;
             postDocument.update({ voteScore: postData.voteScore });
 
-            // Fetch downvotes collection, push it into an array and return it
+            // Return upvotes and downvotes collections
             return db
               .collection('postDownvotes')
               .where('postId', '==', req.params.postId)
@@ -588,7 +725,24 @@ exports.togglePostDownvote = (req, res) => {
               downvotes.push(downvote);
             });
 
-            return res.json(downvotes);
+            return db
+              .collection('postUpvotes')
+              .where('postId', '==', req.params.postId)
+              .get();
+          })
+          .then((data) => {
+            data.forEach((doc) => {
+              const upvote = doc.data();
+              upvote.id = doc.id;
+              upvotes.push(upvote);
+            });
+
+            return res.json({
+              postId: postData.id,
+              voteScore: postData.voteScore,
+              upvotes: upvotes,
+              downvotes: downvotes,
+            });
           });
       }
     })
