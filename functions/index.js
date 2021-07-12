@@ -19,6 +19,8 @@ const {
   deleteComment,
   favPost,
   unfavPost,
+  togglePostUpvote,
+  togglePostDownvote,
 } = require('./handlers/posts');
 const {
   signup,
@@ -40,6 +42,8 @@ app.post('/post/:postId/comment', fbAuth, commentOnPost);
 app.delete('/post/:postId/comment/:commentId', fbAuth, deleteComment);
 app.post('/post/:postId/fav', fbAuth, favPost);
 app.post('/post/:postId/unfav', fbAuth, unfavPost);
+app.post('/post/:postId/togglePostUpvote', fbAuth, togglePostUpvote);
+app.post('/post/:postId/togglePostDownvote', fbAuth, togglePostDownvote);
 
 // Users routes
 app.post('/signup', signup);

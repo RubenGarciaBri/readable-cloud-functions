@@ -22,7 +22,7 @@ const _ = {
 
         const commentsCollection = await db
           .collection('comments')
-          .orderBy('createdAt', 'desc')
+          .orderBy('createdAt', 'asc')
           .where('postId', '==', post.id)
           .get();
 
@@ -71,7 +71,7 @@ exports.getPost = (req, res) => {
       postData.postId = doc.id;
       return db
         .collection('comments')
-        .orderBy('createdAt', 'desc')
+        .orderBy('createdAt', 'asc')
         .where('postId', '==', req.params.postId)
         .get();
     })
@@ -86,13 +86,13 @@ exports.getPost = (req, res) => {
         .get();
     })
     .then((data) => {
-      postData.favs = []
+      postData.favs = [];
 
       data.forEach((doc) => {
-        const fav = doc.data()
-        fav.id = doc.id
-        postData.favs.push(fav)
-      })
+        const fav = doc.data();
+        fav.id = doc.id;
+        postData.favs.push(fav);
+      });
 
       return res.json(postData);
     })
@@ -270,23 +270,23 @@ exports.favPost = (req, res) => {
             });
 
             return db
-            .collection('favs')
-            .where('postId', '==', postData.id)
-            .get()
+              .collection('favs')
+              .where('postId', '==', postData.id)
+              .get();
           })
           .then((data) => {
-            postData.favs = []
+            postData.favs = [];
 
             data.forEach((doc) => {
-              const fav = doc.data()
-              fav.id = doc.id
-              postData.favs.push(fav)
-            })
+              const fav = doc.data();
+              fav.id = doc.id;
+              postData.favs.push(fav);
+            });
 
             return res.json({
               id: postData.id,
               favCount: postData.favCount,
-              favs: postData.favs
+              favs: postData.favs,
             });
           });
       } else {
@@ -333,24 +333,262 @@ exports.unfavPost = (req, res) => {
             postDocument.update({ favCount: postData.favCount });
 
             return db
-            .collection('favs')
-            .where('postId', '==', postData.id)
-            .get()
+              .collection('favs')
+              .where('postId', '==', postData.id)
+              .get();
           })
           .then((data) => {
-            postData.favs = []
+            postData.favs = [];
 
             data.forEach((doc) => {
-              const fav = doc.data()
-              fav.id = doc.id
-              postData.favs.push(fav)
-            })
+              const fav = doc.data();
+              fav.id = doc.id;
+              postData.favs.push(fav);
+            });
 
             return res.json({
               id: postData.id,
               favCount: postData.favCount,
-              favs: postData.favs
+              favs: postData.favs,
             });
+          });
+      }
+    })
+    .catch((err) => {
+      res.status(500).json({ error: err.code });
+    });
+};
+
+// Toggle post upvote
+exports.togglePostUpvote = (req, res) => {
+  const upvoteDocument = db
+    .collection('postUpvotes')
+    .where('userName', '==', req.user.userName)
+    .where('postId', '==', req.params.postId)
+    .limit(1);
+
+  const downvoteDocument = db
+    .collection('postDownvotes')
+    .where('userName', '==', req.user.userName)
+    .where('postId', '==', req.params.postId)
+    .limit(1);
+
+  const postDocument = db.doc(`posts/${req.params.postId}`);
+
+  let upvotes = [];
+  let postData = {};
+
+  postDocument
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        postData = doc.data();
+        postData.id = doc.id;
+
+        return upvoteDocument.get();
+      } else {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+    })
+    .then((data) => {
+      // Check if the post has been upvoted
+      if (data.empty) {
+        // If the post hasn't been upvoted, add upvote
+        db.collection('postUpvotes').add({
+          postId: req.params.postId,
+          userName: req.user.userName,
+        });
+        return downvoteDocument.get().then((data) => {
+          // Check if the post has been downvoted previously
+          if (data.empty) {
+            // If the post hasn't been downvoted, increase vote score by 1
+            postData.voteScore++;       
+            postDocument.update({ voteScore: postData.voteScore });
+
+            // Fetch upvotes collection, push it into an array and return it
+            return db
+              .collection('postUpvotes')
+              .where('postId', '==', req.params.postId)
+              .get()
+
+              .then((data) => {
+                data.forEach((doc) => {
+                  const upvote = doc.data();
+                  upvote.id = doc.id;
+                  upvotes.push(upvote);
+                });
+
+                return res.json(upvotes);
+              });
+          } else {
+            // If the post has been downvoted previously, delete previous downvote and increase voteScore by 2
+
+            return db
+              .doc(`/postDownvotes/${data.docs[0].id}`)
+              .delete()
+              .then(() => {
+                postData.voteScore += 2;
+                postDocument.update({ voteScore: postData.voteScore });
+
+                // Fetch upvotes collection, push it into an array and return it
+                return db
+                  .collection('postUpvotes')
+                  .where('postId', '==', req.params.postId)
+                  .get();
+              })
+              .then((data) => {
+                data.forEach((doc) => {
+                  const upvote = doc.data();
+                  upvote.id = doc.id;
+                  upvotes.push(upvote);
+                });
+
+                return res.json(upvotes);
+              });
+          }
+        });
+      } else {
+        // If the post has been upvoted, remove upvote and decrease vote score by 1
+        return db
+          .doc(`/postUpvotes/${data.docs[0].id}`)
+          .delete()
+          .then(() => {
+            postData.voteScore--;
+            postDocument.update({ voteScore: postData.voteScore });
+
+            // Fetch upvotes collection, push it into an array and return it
+            return db
+              .collection('postUpvotes')
+              .where('postId', '==', req.params.postId)
+              .get();
+          })
+          .then((data) => {
+            data.forEach((doc) => {
+              const upvote = doc.data();
+              upvote.id = doc.id;
+              upvotes.push(upvote);
+            });
+
+            return res.json(upvotes);
+          });
+      }
+    })
+    .catch((err) => {
+      res.status(500).json({ error: err.code });
+    });
+};
+
+// Toggle post downvote
+exports.togglePostDownvote = (req, res) => {
+  const upvoteDocument = db
+    .collection('postUpvotes')
+    .where('userName', '==', req.user.userName)
+    .where('postId', '==', req.params.postId)
+    .limit(1);
+
+  const downvoteDocument = db
+    .collection('postDownvotes')
+    .where('userName', '==', req.user.userName)
+    .where('postId', '==', req.params.postId)
+    .limit(1);
+
+  const postDocument = db.doc(`posts/${req.params.postId}`);
+
+  let downvotes = [];
+  let postData = {};
+
+  postDocument
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        postData = doc.data();
+        postData.id = doc.id;
+
+        return downvoteDocument.get();
+      } else {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+    })
+    .then((data) => {
+      // Check if the post has been downvoted
+      if (data.empty) {
+        // If the post hasn't been downvoted, add downvote
+        db.collection('postDownvotes').add({
+          postId: req.params.postId,
+          userName: req.user.userName,
+        });
+        return upvoteDocument.get().then((data) => {
+          // Check if the post has been upvoted previously
+          if (data.empty) {
+            // If the post hasn't been upvoted, decrease vote score by 1
+            postData.voteScore--;
+            postDocument.update({ voteScore: postData.voteScore });
+
+            // Fetch downvotes collection, push it into an array and return it
+            return db
+              .collection('postDownvotes')
+              .where('postId', '==', req.params.postId)
+              .get()
+
+              .then((data) => {
+                data.forEach((doc) => {
+                  const downvote = doc.data();
+                  downvote.id = doc.id;
+                  downvotes.push(downvote);
+                });
+
+                return res.json(downvotes);
+              });
+          } else {
+            // If the post has been upvoted previously, delete previous upvote and decrease voteScore by 2
+
+            return db
+              .doc(`/postUpvotes/${data.docs[0].id}`)
+              .delete()
+              .then(() => {
+                postData.voteScore -= 2;
+                postDocument.update({ voteScore: postData.voteScore });
+
+                // Fetch downvotes collection, push it into an array and return it
+                return db
+                  .collection('postDownvotes')
+                  .where('postId', '==', req.params.postId)
+                  .get();
+              })
+              .then((data) => {
+                data.forEach((doc) => {
+                  const downvote = doc.data();
+                  downvote.id = doc.id;
+                  downvotes.push(downvote);
+                });
+
+                return res.json(downvotes);
+              });
+          }
+        });
+      } else {
+        // If the post has been downvoted, remove downvote and increase vote score by 1
+        return db
+          .doc(`/postDownvotes/${data.docs[0].id}`)
+          .delete()
+          .then(() => {
+            postData.voteScore++;
+            postDocument.update({ voteScore: postData.voteScore });
+
+            // Fetch downvotes collection, push it into an array and return it
+            return db
+              .collection('postDownvotes')
+              .where('postId', '==', req.params.postId)
+              .get();
+          })
+          .then((data) => {
+            data.forEach((doc) => {
+              const downvote = doc.data();
+              downvote.id = doc.id;
+              downvotes.push(downvote);
+            });
+
+            return res.json(downvotes);
           });
       }
     })
