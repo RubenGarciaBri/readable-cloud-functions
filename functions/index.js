@@ -233,7 +233,6 @@ exports.onPostDelete = functions
       .catch((err) => console.error(err));
   });
 
-// Helper function to get all posts
 const _ = {
   async fullPosts() {
     const postsCollection = await db
@@ -304,9 +303,20 @@ const _ = {
   },
 };
 
-exports.addFirestoreDataToAlgoria = functions.https.onRequest(async (req, res) => {
-  _.fullPosts()
-    .then((posts) => {
+exports.addFirestoreDataToAlgoria = functions.https.onRequest((req, res) => {
+  return db
+    .collection('posts')
+    .get()
+    .then((docs) => {
+      postsArray = [];
+
+      docs.forEach((doc) => {
+        const post = doc.data();
+        post.objectID = doc.id;
+
+        postsArray.push(post);
+      });
+
       const client = algoliasearch(
         process.env.ALGOLIA_APP_ID,
         process.env.ALGOLIA_ADMIN_KEY
@@ -314,7 +324,7 @@ exports.addFirestoreDataToAlgoria = functions.https.onRequest(async (req, res) =
 
       const index = client.initIndex(process.env.ALGOLIA_INDEX_NAME);
 
-      index.saveObjects(posts);
+      index.saveObjects(postsArray);
 
       res.status(200).json({ message: 'Posts saved on Algolia successfully' });
     })
