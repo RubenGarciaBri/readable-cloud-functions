@@ -2,7 +2,9 @@ const { db } = require('../utils/admin');
 const firebase = require('firebase');
 const config = require('../utils/config');
 const { formatResponsePosts } = require('../utils/helpers');
+const axios = require('axios');
 
+// Helper function to get all posts
 const _ = {
   async fullPosts() {
     const postsCollection = await db
@@ -176,6 +178,12 @@ exports.postOnePost = (req, res) => {
       resPost.id = doc.id;
       resPost.comments = [];
       resPost.favs = [];
+
+      // Save posts data to Algoria
+      axios.get(
+        'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+      );
+
       res.json(resPost);
     })
     .catch((err) => {
@@ -201,6 +209,11 @@ exports.deletePost = (req, res) => {
       }
     })
     .then(() => {
+      // Save posts data to Algoria
+      axios.get(
+        'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+      );
+
       res.json({ message: 'Post deleted successfully' });
     })
     .catch((err) => {
@@ -237,6 +250,12 @@ exports.commentOnPost = (req, res) => {
     .then((doc) => {
       const resComment = newComment;
       resComment.id = doc.id;
+
+      // Save posts data to Algoria
+      axios.get(
+        'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+      );
+
       res.json(resComment);
     })
     .catch((err) => {
@@ -266,7 +285,6 @@ exports.deleteComment = (req, res) => {
             return doc.ref.update({
               commentCount: doc.data().commentCount - 1,
             });
-            console.log('Commentcount modified');
           }
         });
       }
@@ -275,6 +293,11 @@ exports.deleteComment = (req, res) => {
       return comment.delete();
     })
     .then(() => {
+      // Save posts data to Algoria
+      axios.get(
+        'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+      );
+
       res.json({ message: 'Comment deleted successfully' });
     })
     .catch((err) => {
@@ -334,6 +357,11 @@ exports.favPost = (req, res) => {
               fav.id = doc.id;
               postData.favs.push(fav);
             });
+
+            // Save posts data to Algoria
+            axios.get(
+              'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+            );
 
             return res.json({
               id: postData.id,
@@ -397,6 +425,11 @@ exports.unfavPost = (req, res) => {
               fav.id = doc.id;
               postData.favs.push(fav);
             });
+
+            // Save posts data to Algoria
+            axios.get(
+              'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+            );
 
             return res.json({
               id: postData.id,
@@ -483,6 +516,11 @@ exports.togglePostUpvote = (req, res) => {
                   downvotes.push(downvote);
                 });
 
+                // Save posts data to Algoria
+                axios.get(
+                  'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+                );
+
                 return res.json({
                   postId: postData.id,
                   voteScore: postData.voteScore,
@@ -523,6 +561,11 @@ exports.togglePostUpvote = (req, res) => {
                   downvote.id = doc.id;
                   downvotes.push(downvote);
                 });
+
+                // Save posts data to Algoria
+                axios.get(
+                  'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+                );
 
                 return res.json({
                   postId: postData.id,
@@ -566,6 +609,11 @@ exports.togglePostUpvote = (req, res) => {
               downvote.id = doc.id;
               downvotes.push(downvote);
             });
+
+            // Save posts data to Algoria
+            axios.get(
+              'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+            );
 
             return res.json({
               postId: postData.id,
@@ -653,6 +701,11 @@ exports.togglePostDownvote = (req, res) => {
                   upvotes.push(upvote);
                 });
 
+                // Save posts data to Algoria
+                axios.get(
+                  'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+                );
+
                 return res.json({
                   postId: postData.id,
                   voteScore: postData.voteScore,
@@ -693,6 +746,11 @@ exports.togglePostDownvote = (req, res) => {
                   upvote.id = doc.id;
                   upvotes.push(upvote);
                 });
+
+                // Save posts data to Algoria
+                axios.get(
+                  'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+                );
 
                 return res.json({
                   postId: postData.id,
@@ -736,6 +794,11 @@ exports.togglePostDownvote = (req, res) => {
               upvote.id = doc.id;
               upvotes.push(upvote);
             });
+
+            // Save posts data to Algoria
+            axios.get(
+              'https://us-central1-readable-bf7a6.cloudfunctions.net/addFirestoreDataToAlgoria'
+            );
 
             return res.json({
               postId: postData.id,

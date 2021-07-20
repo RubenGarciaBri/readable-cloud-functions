@@ -119,7 +119,7 @@ exports.createNotificationOnComment = functions
       });
   });
 
-  exports.deleteNotificationOnUncomment = functions
+exports.deleteNotificationOnUncomment = functions
   .region('europe-west1')
   .firestore.document('comments/{id}')
   .onDelete((snapshot) => {
@@ -167,7 +167,7 @@ exports.onPostCreate = functions
 
     let newPost = {};
 
-     return postDocument
+    return postDocument
       .get()
       .then((doc) => {
         if (doc.exists) {
@@ -182,11 +182,11 @@ exports.onPostCreate = functions
           const index = client.initIndex(process.env.ALGOLIA_INDEX_NAME);
           index.saveObject(newPost);
         } else {
-          return true
+          return true;
         }
       })
       .catch((err) => {
-        console.log(err)
+        console.log(err);
       });
   });
 
@@ -233,20 +233,80 @@ exports.onPostDelete = functions
       .catch((err) => console.error(err));
   });
 
-exports.addFirestoreDataToAlgoria = functions.https.onRequest((req, res) => {
-  return db
-    .collection('posts')
-    .get()
-    .then((docs) => {
-      postsArray = [];
+// Helper function to get all posts
+const _ = {
+  async fullPosts() {
+    const postsCollection = await db
+      .collection('posts')
+      .orderBy('createdAt', 'desc')
+      .get();
 
-      docs.forEach((doc) => {
+    // Promise.all() will take a list of promises and will return their results once they have all finished.
+    return await Promise.all(
+      // Array.prototype.map() will take an existing array and, for each item, call the given function and return a new array with the return value of each function in that array.
+      // This is functionally equivalent to making a new array and push()ing to it, but it reads a lot nicer!
+      postsCollection.docs.map(async (doc) => {
         const post = doc.data();
-        post.objectID = doc.id;
+        post.id = doc.id;
+        post.comments = [];
+        post.favs = [];
+        post.upvotes = [];
+        post.downvotes = [];
 
-        postsArray.push(post);
-      });
+        const commentsCollection = await db
+          .collection('comments')
+          .orderBy('createdAt', 'asc')
+          .where('postId', '==', post.id)
+          .get();
 
+        commentsCollection.forEach((doc) => {
+          const comment = doc.data();
+          comment.id = doc.id;
+          post.comments.push(comment);
+        });
+
+        const favsCollection = await db
+          .collection('favs')
+          .where('postId', '==', post.id)
+          .get();
+
+        favsCollection.forEach((doc) => {
+          const fav = doc.data();
+          fav.id = doc.id;
+          post.favs.push(fav);
+        });
+
+        const upvotesPostCollection = await db
+          .collection('postUpvotes')
+          .where('postId', '==', post.id)
+          .get();
+
+        upvotesPostCollection.forEach((doc) => {
+          const upvote = doc.data();
+          upvote.id = doc.id;
+          post.upvotes.push(upvote);
+        });
+
+        const downvotesPostCollection = await db
+          .collection('postDownvotes')
+          .where('postId', '==', post.id)
+          .get();
+
+        downvotesPostCollection.forEach((doc) => {
+          const upvote = doc.data();
+          upvote.id = doc.id;
+          post.upvotes.push(upvote);
+        });
+
+        return post;
+      })
+    );
+  },
+};
+
+exports.addFirestoreDataToAlgoria = functions.https.onRequest(async (req, res) => {
+  _.fullPosts()
+    .then((posts) => {
       const client = algoliasearch(
         process.env.ALGOLIA_APP_ID,
         process.env.ALGOLIA_ADMIN_KEY
@@ -254,7 +314,7 @@ exports.addFirestoreDataToAlgoria = functions.https.onRequest((req, res) => {
 
       const index = client.initIndex(process.env.ALGOLIA_INDEX_NAME);
 
-      index.saveObjects(postsArray);
+      index.saveObjects(posts);
 
       res.status(200).json({ message: 'Posts saved on Algolia successfully' });
     })
