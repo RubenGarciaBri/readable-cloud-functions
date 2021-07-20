@@ -64,9 +64,9 @@ const _ = {
           .get();
 
         downvotesPostCollection.forEach((doc) => {
-          const upvote = doc.data();
-          upvote.id = doc.id;
-          post.upvotes.push(upvote);
+          const downvote = doc.data();
+          downvote.id = doc.id;
+          post.downvotes.push(downvote);
         });
 
         return post;
