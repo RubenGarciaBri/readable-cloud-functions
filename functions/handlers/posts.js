@@ -147,7 +147,7 @@ exports.getPost = (req, res) => {
         downvote.id = doc.id;
         postData.downvotes.push(downvote);
       });
-
+      
       return res.json(postData);
     })
     .catch((err) => {
@@ -234,6 +234,7 @@ exports.commentOnPost = (req, res) => {
     postId: req.params.postId,
     userName: req.user.userName,
     userImage: req.user.imageUrl,
+    voteScore: 0,
   };
 
   db.doc(`/posts/${req.params.postId}`)
@@ -442,6 +443,316 @@ exports.unfavPost = (req, res) => {
     .catch((err) => {
       res.status(500).json({ error: err.code });
     });
+};
+
+// Toggle comment upvote
+exports.toggleCommentUpvote = (req, res) => {
+  const upvoteDocument = db
+    .collection('commentUpvotes')
+    .where('userName', '==', req.user.userName)
+    .where('commentId', '==', req.params.commentId)
+    .limit(1);
+
+  const downvoteDocument = db
+    .collection('commentDownvotes')
+    .where('userName', '==', req.user.userName)
+    .where('commentId', '==', req.params.commentId)
+    .limit(1);
+
+  const commentDocument = db.doc(`comments/${req.params.commentId}`);
+
+  let upvotes = [];
+  let downvotes = [];
+  let commentData = {};
+
+  commentDocument
+  .get()
+  .then((doc) => {
+    if (doc.exists) {
+      commentData = doc.data();
+      commentData.commentId = doc.id;
+
+      return upvoteDocument.get();
+    } else {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+  })
+  .then((data) => {
+    // Check if the comment has been upvoted
+    if (data.empty) {
+      // If the comment hasn't been upvoted, add upvote
+      db.collection('commentUpvotes').add({
+        commentId: req.params.commentId,
+        userName: req.user.userName,
+      });
+      return downvoteDocument.get().then((data) => {
+        // Check if the comment has been downvoted previously
+        if (data.empty) {
+          // If the comment hasn't been downvoted, increase vote score by 1
+          commentData.voteScore++;
+          commentDocument.update({ voteScore: commentData.voteScore });
+
+          // Return upvotes and downvotes collections
+          return db
+            .collection('commentUpvotes')
+            .where('commentId', '==', req.params.commentId)
+            .get()
+
+            .then((data) => {
+              data.forEach((doc) => {
+                const upvote = doc.data();
+                upvote.id = doc.id;
+                upvotes.push(upvote);
+              });
+
+              return db
+                .collection('commentDownvotes')
+                .where('commentId', '==', req.params.commentId)
+                .get();
+            })
+            .then((data) => {
+              data.forEach((doc) => {
+                const downvote = doc.data();
+                downvote.id = doc.id;
+                downvotes.push(downvote);
+              });
+
+              return res.json(commentData);
+            });
+        } else {
+          // If the comment has been downvoted previously, delete previous downvote and increase voteScore by 2
+          return db
+            .doc(`/commentDownvotes/${data.docs[0].id}`)
+            .delete()
+            .then(() => {
+              commentData.voteScore += 2;
+              commentDocument.update({ voteScore: commentData.voteScore });
+
+              // Return upvotes and downvotes collections
+              return db
+                .collection('commentUpvotes')
+                .where('commentId', '==', req.params.commentId)
+                .get();
+            })
+            .then((data) => {
+              data.forEach((doc) => {
+                const upvote = doc.data();
+                upvote.id = doc.id;
+                upvotes.push(upvote);
+              });
+
+              return db
+                .collection('commentDownvotes')
+                .where('commentId', '==', req.params.commentId)
+                .get();
+            })
+            .then((data) => {
+              data.forEach((doc) => {
+                const downvote = doc.data();
+                downvote.id = doc.id;
+                downvotes.push(downvote);
+              });
+
+              return res.json(commentData);
+            });
+        }
+      });
+    } else {
+      // If the comment has been upvoted, remove upvote and decrease vote score by 1
+      return db
+        .doc(`/commentUpvotes/${data.docs[0].id}`)
+        .delete()
+        .then(() => {
+          commentData.voteScore--;
+          commentDocument.update({ voteScore: commentData.voteScore });
+
+          // Return upvotes and downvotes collections
+          return db
+            .collection('commentUpvotes')
+            .where('commentId', '==', req.params.commentId)
+            .get();
+        })
+        .then((data) => {
+          data.forEach((doc) => {
+            const upvote = doc.data();
+            upvote.id = doc.id;
+            upvotes.push(upvote);
+          });
+
+          return db
+            .collection('commentDownvotes')
+            .where('commentId', '==', req.params.commentId)
+            .get();
+        })
+        .then((data) => {
+          data.forEach((doc) => {
+            const downvote = doc.data();
+            downvote.id = doc.id;
+            downvotes.push(downvote);
+          });
+
+          return res.json(commentData);
+        });
+    }
+  })
+  .catch((err) => {
+    res.status(500).json({ error: err.code });
+  });
+}
+
+// Toggle comment downvote
+exports.toggleCommentDownvote = (req, res) => {
+  const upvoteDocument = db
+    .collection('commentUpvotes')
+    .where('userName', '==', req.user.userName)
+    .where('commentId', '==', req.params.commentId)
+    .limit(1);
+
+  const downvoteDocument = db
+    .collection('commentDownvotes')
+    .where('userName', '==', req.user.userName)
+    .where('commentId', '==', req.params.commentId)
+    .limit(1);
+
+  const commentDocument = db.doc(`comments/${req.params.commentId}`);
+
+  let upvotes = [];
+  let downvotes = [];
+  let commentData = {};
+
+  commentDocument
+  .get()
+  .then((doc) => {
+    if (doc.exists) {
+      commentData = doc.data();
+      commentData.commentId = doc.id;
+
+      return downvoteDocument.get();
+    } else {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+  })
+  .then((data) => {
+    // Check if the comment has been downvoted
+    if (data.empty) {
+      // If the comment hasn't been downvoted, add downvote
+      db.collection('commentDownvotes').add({
+        commentId: req.params.commentId,
+        userName: req.user.userName,
+      });
+      return upvoteDocument.get().then((data) => {
+        // Check if the comment has been upvoted previously
+        if (data.empty) {
+          // If the comment hasn't been upvoted, decrease vote score by 1
+          commentData.voteScore--;
+          commentDocument.update({ voteScore: commentData.voteScore });
+
+          // Return upvotes and downvotes collections
+          return db
+            .collection('commentDownvotes')
+            .where('commentId', '==', req.params.commentId)
+            .get()
+
+            .then((data) => {
+              data.forEach((doc) => {
+                const downvote = doc.data();
+                downvote.id = doc.id;
+                downvotes.push(downvote);
+              });
+
+              return db
+                .collection('commentUpvotes')
+                .where('commentId', '==', req.params.commentId)
+                .get();
+            })
+            .then((data) => {
+              data.forEach((doc) => {
+                const upvote = doc.data();
+                upvote.id = doc.id;
+                upvotes.push(upvote);
+              });
+
+              return res.json(commentData);
+            });
+        } else {
+          // If the comment has been upvoted previously, delete previous upvote and decrease voteScore by 2
+          return db
+            .doc(`/commentUpvotes/${data.docs[0].id}`)
+            .delete()
+            .then(() => {
+              commentData.voteScore -= 2;
+              commentDocument.update({ voteScore: commentData.voteScore });
+
+              // Return upvotes and downvotes collections
+              return db
+                .collection('commentDownvotes')
+                .where('commentId', '==', req.params.commentId)
+                .get();
+            })
+            .then((data) => {
+              data.forEach((doc) => {
+                const downvote = doc.data();
+                downvote.id = doc.id;
+                downvotes.push(downvote);
+              });
+
+              return db
+                .collection('commentUpvotes')
+                .where('commentId', '==', req.params.commentId)
+                .get();
+            })
+            .then((data) => {
+              data.forEach((doc) => {
+                const upvote = doc.data();
+                upvote.id = doc.id;
+                upvotes.push(upvote);
+              });
+
+              return res.json(commentData);
+            });
+        }
+      });
+    } else {
+      // If the comment has been downvoted, remove downvote and increase vote score by 1
+      return db
+        .doc(`/commentDownvotes/${data.docs[0].id}`)
+        .delete()
+        .then(() => {
+          commentData.voteScore++;
+          commentDocument.update({ voteScore: commentData.voteScore });
+
+          // Return upvotes and downvotes collections
+          return db
+            .collection('commentDownvotes')
+            .where('commentId', '==', req.params.commentId)
+            .get();
+        })
+        .then((data) => {
+          data.forEach((doc) => {
+            const downvote = doc.data();
+            downvote.id = doc.id;
+            downvotes.push(downvote);
+          });
+
+          return db
+            .collection('commentUpvotes')
+            .where('commentId', '==', req.params.commentId)
+            .get();
+        })
+        .then((data) => {
+          data.forEach((doc) => {
+            const upvote = doc.data();
+            upvote.id = doc.id;
+            upvotes.push(upvote);
+          });
+
+          return res.json(commentData);
+        });
+    }
+  })
+  .catch((err) => {
+    res.status(500).json({ error: err.code });
+  });
 };
 
 // Toggle post upvote

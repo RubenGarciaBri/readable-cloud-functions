@@ -29,6 +29,7 @@ module.exports = (req, res, next) => {
     })
     .catch((err) => {
       console.error('Error while virifying token ', err);
+      console.log(idToken)
       return res.status(403).json(err);
     });
 };

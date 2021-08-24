@@ -21,6 +21,8 @@ const {
   unfavPost,
   togglePostUpvote,
   togglePostDownvote,
+  toggleCommentUpvote,
+  toggleCommentDownvote
 } = require('./handlers/posts');
 const {
   signup,
@@ -44,6 +46,10 @@ app.post('/post/:postId/fav', fbAuth, favPost);
 app.post('/post/:postId/unfav', fbAuth, unfavPost);
 app.post('/post/:postId/togglePostUpvote', fbAuth, togglePostUpvote);
 app.post('/post/:postId/togglePostDownvote', fbAuth, togglePostDownvote);
+
+// Comment voting functionality under development
+// app.post('/comment/:commentId/toggleCommentUpvote', fbAuth, toggleCommentUpvote);
+// app.post('/comment/:commentId/toggleCommentDownvote', fbAuth, toggleCommentDownvote);
 
 // Users routes
 app.post('/signup', signup);
